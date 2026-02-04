@@ -1,0 +1,22 @@
+# Qt 编译产物
+build/
+debug/
+release/
+*.o
+*.obj
+*.exe
+*.dll
+*.user
+*.autosave
+moc_*
+ui_*
+qrc_*
+Makefile*
+
+# Qt Creator 配置
+*.pro.user*
+CMakeLists.txt.user
+
+# Windows 系统文件
+Thumbs.db
+desktop.ini

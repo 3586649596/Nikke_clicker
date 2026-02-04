@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+============================================================
+文件名：app.manifest
+功能：Windows 应用程序清单文件
+说明：请求管理员权限运行程序
+
+学习要点：
+1. manifest 文件用于配置 Windows 应用程序的属性
+2. requestedExecutionLevel 指定程序需要的权限级别
+3. 三个权限级别：
+   - asInvoker: 继承父进程权限（默认）
+   - highestAvailable: 使用可用的最高权限
+   - requireAdministrator: 必须管理员权限
+
+为什么需要管理员权限？
+- 全局键盘钩子需要更高的权限才能捕获游戏中的按键
+- SendInput 在某些情况下需要管理员权限
+
+如何使用这个文件？
+在 .pro 文件中添加：
+    win32 {
+        CONFIG += embed_manifest_exe
+        QMAKE_MANIFEST = $$PWD/app.manifest
+    }
+============================================================
+-->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <assemblyIdentity
+    version="1.0.0.0"
+    processorArchitecture="*"
+    name="NikkeQt.MouseMacro"
+    type="win32"/>
+
+  <description>Nikke Qt 鼠标宏工具</description>
+
+  <!-- 请求管理员权限 -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <!--
+        level 选项：
+        - asInvoker: 不请求额外权限
+        - highestAvailable: 请求用户可用的最高权限
+        - requireAdministrator: 必须以管理员身份运行
+        
+        uiAccess: 是否允许驱动用户界面（通常为 false）
+        -->
+        <requestedExecutionLevel level="requireAdministrator" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
+  <!-- Windows 版本兼容性 -->
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 / Windows 11 -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+      <!-- Windows 8.1 -->
+      <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}"/>
+      <!-- Windows 8 -->
+      <supportedOS Id="{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}"/>
+      <!-- Windows 7 -->
+      <supportedOS Id="{35138b9a-5d96-4fbd-8e2d-a2440225f93a}"/>
+    </application>
+  </compatibility>
+
+  <!-- DPI 感知设置 -->
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <!-- 启用高 DPI 支持 -->
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+    </windowsSettings>
+  </application>
+</assembly>
