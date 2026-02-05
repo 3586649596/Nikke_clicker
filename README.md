@@ -1,6 +1,6 @@
 # Nikke 鼠标宏 / Nikke Mouse Macro
 
-[中文](#nikke-鼠标宏) | [English](#nikke-mouse-macro-1)
+[中文](#nikke-鼠标宏) | [English](#nikke-mouse-macro)
 
 ---
 
