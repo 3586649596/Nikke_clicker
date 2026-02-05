@@ -40,8 +40,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 设置窗口标题和大小（包含版本号）
     setWindowTitle(QString("Nikke 鼠标宏 v%1").arg(APP_VERSION));
-    setMinimumSize(350, 450);  // 设置最小尺寸，允许自由缩放
-    resize(400, 550);          // 设置初始大小
+    setMinimumSize(420, 680);  // 设置最小尺寸，确保内容完整显示
+    resize(450, 720);          // 设置初始大小
 
     // 获取设置管理器单例
     m_settings = SettingsManager::instance();
@@ -128,8 +128,8 @@ void MainWindow::setupUi()
 
     // 创建主布局（垂直布局）
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
-    mainLayout->setSpacing(15);         // 控件间距
-    mainLayout->setContentsMargins(20, 20, 20, 20);  // 边距
+    mainLayout->setSpacing(10);         // 控件间距（优化后减小）
+    mainLayout->setContentsMargins(15, 15, 15, 15);  // 边距（优化后减小）
 
     // ========================================
     // 快捷键设置组
@@ -158,67 +158,87 @@ void MainWindow::setupUi()
     // 射击参数组
     // ========================================
     QGroupBox *paramGroup = new QGroupBox("射击参数", this);
+    paramGroup->setMinimumSize(350, 150);  // 设置最小宽度和高度
+    paramGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);  // 水平扩展，垂直固定
     QVBoxLayout *paramLayout = new QVBoxLayout(paramGroup);
 
     // --- 点击间隔 ---
     QHBoxLayout *intervalLayout = new QHBoxLayout();
     QLabel *intervalLabel = new QLabel("点击间隔:", this);
-    intervalLabel->setFixedWidth(70);
+    intervalLabel->setMinimumWidth(75);
+    intervalLabel->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 
     m_clickIntervalSlider = new QSlider(Qt::Horizontal, this);
     m_clickIntervalSlider->setRange(10, 500);   // 范围 10-500 毫秒
     m_clickIntervalSlider->setValue(20);        // 默认 20 毫秒
+    m_clickIntervalSlider->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     m_clickIntervalSpinBox = new QSpinBox(this);
     m_clickIntervalSpinBox->setRange(10, 500);
     m_clickIntervalSpinBox->setValue(20);
     m_clickIntervalSpinBox->setSuffix(" ms");   // 添加单位后缀
-    m_clickIntervalSpinBox->setMinimumWidth(100);  // 设置最小宽度，确保内容可见
+    m_clickIntervalSpinBox->setFixedWidth(150);  // 固定宽度确保完整显示
+    m_clickIntervalSpinBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     intervalLayout->addWidget(intervalLabel);
     intervalLayout->addWidget(m_clickIntervalSlider);
     intervalLayout->addWidget(m_clickIntervalSpinBox);
+    intervalLayout->setStretch(0, 0);  // 标签：不伸展
+    intervalLayout->setStretch(1, 1);  // 滑块：伸展
+    intervalLayout->setStretch(2, 0);  // SpinBox：不伸展
     paramLayout->addLayout(intervalLayout);
 
     // --- 按下时长 ---
     QHBoxLayout *pressDownLayout = new QHBoxLayout();
     QLabel *pressDownLabel = new QLabel("按下时长:", this);
-    pressDownLabel->setFixedWidth(70);
+    pressDownLabel->setMinimumWidth(75);
+    pressDownLabel->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 
     m_pressDownSlider = new QSlider(Qt::Horizontal, this);
     m_pressDownSlider->setRange(10, 1000);      // 范围 10-1000 毫秒
     m_pressDownSlider->setValue(200);           // 默认 200 毫秒
+    m_pressDownSlider->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     m_pressDownSpinBox = new QSpinBox(this);
     m_pressDownSpinBox->setRange(10, 1000);
     m_pressDownSpinBox->setValue(200);
     m_pressDownSpinBox->setSuffix(" ms");
-    m_pressDownSpinBox->setMinimumWidth(100);
+    m_pressDownSpinBox->setFixedWidth(150);  // 固定宽度确保完整显示
+    m_pressDownSpinBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     pressDownLayout->addWidget(pressDownLabel);
     pressDownLayout->addWidget(m_pressDownSlider);
     pressDownLayout->addWidget(m_pressDownSpinBox);
+    pressDownLayout->setStretch(0, 0);  // 标签：不伸展
+    pressDownLayout->setStretch(1, 1);  // 滑块：伸展
+    pressDownLayout->setStretch(2, 0);  // SpinBox：不伸展
     paramLayout->addLayout(pressDownLayout);
 
     // --- 随机延迟 ---
     QHBoxLayout *randomLayout = new QHBoxLayout();
     QLabel *randomLabel = new QLabel("随机延迟:", this);
-    randomLabel->setFixedWidth(70);
+    randomLabel->setMinimumWidth(75);
+    randomLabel->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 
     m_randomDelaySlider = new QSlider(Qt::Horizontal, this);
     m_randomDelaySlider->setRange(0, 50);       // 范围 0-50 毫秒
     m_randomDelaySlider->setValue(5);           // 默认 ±5 毫秒
+    m_randomDelaySlider->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     m_randomDelaySpinBox = new QSpinBox(this);
     m_randomDelaySpinBox->setRange(0, 50);
     m_randomDelaySpinBox->setValue(5);
     m_randomDelaySpinBox->setPrefix("±");       // 添加前缀
     m_randomDelaySpinBox->setSuffix(" ms");
-    m_randomDelaySpinBox->setMinimumWidth(100);
+    m_randomDelaySpinBox->setFixedWidth(150);  // 固定宽度确保完整显示
+    m_randomDelaySpinBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     randomLayout->addWidget(randomLabel);
     randomLayout->addWidget(m_randomDelaySlider);
     randomLayout->addWidget(m_randomDelaySpinBox);
+    randomLayout->setStretch(0, 0);  // 标签：不伸展
+    randomLayout->setStretch(1, 1);  // 滑块：伸展
+    randomLayout->setStretch(2, 0);  // SpinBox：不伸展
     paramLayout->addLayout(randomLayout);
 
     mainLayout->addWidget(paramGroup);
@@ -227,6 +247,8 @@ void MainWindow::setupUi()
     // 点击模式组
     // ========================================
     QGroupBox *modeGroup = new QGroupBox("点击模式", this);
+    modeGroup->setMinimumSize(350, 100);  // 设置最小宽度和高度
+    modeGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);  // 水平扩展，垂直固定
     QHBoxLayout *modeLayout = new QHBoxLayout(modeGroup);
 
     m_sendInputRadio = new QRadioButton("SendInput (推荐)", this);
@@ -243,6 +265,8 @@ void MainWindow::setupUi()
     // 状态显示组
     // ========================================
     QGroupBox *statusGroup = new QGroupBox("状态", this);
+    statusGroup->setMinimumSize(350, 100);  // 设置最小宽度和高度
+    statusGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);  // 水平扩展，垂直固定
     QVBoxLayout *statusLayout = new QVBoxLayout(statusGroup);
 
     m_statusLabel = new QLabel("当前状态: 已停止", this);
@@ -277,6 +301,8 @@ void MainWindow::setupUi()
     // 更新组
     // ========================================
     QGroupBox *updateGroup = new QGroupBox("软件更新", this);
+    updateGroup->setMinimumSize(350, 100);  // 设置最小宽度和高度
+    updateGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);  // 水平扩展，垂直固定
     QVBoxLayout *updateLayout = new QVBoxLayout(updateGroup);
 
     // 更新状态标签
