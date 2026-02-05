@@ -16,6 +16,7 @@
 #include <QLabel>           // 标签控件
 #include <QPushButton>      // 按钮控件
 #include <QRadioButton>     // 单选按钮
+#include <QCheckBox>        // 复选框
 #include <QGroupBox>        // 分组框
 #include <QLineEdit>        // 文本输入框
 #include <QVBoxLayout>      // 垂直布局
@@ -127,6 +128,12 @@ private slots:
      */
     void onHookFailed(const QString& error);
 
+    /**
+     * @brief 显示悬浮窗复选框状态改变
+     * @param checked 是否选中
+     */
+    void onShowOverlayChanged(bool checked);
+
 private:
     // ========================================================
     // 私有方法
@@ -198,6 +205,7 @@ private:
     // 状态和控制
     QLabel *m_statusLabel;              // 状态显示标签
     QPushButton *m_startStopBtn;        // 启动/停止按钮
+    QCheckBox *m_showOverlayCheckBox;   // 显示悬浮窗复选框
 };
 
 #endif // MAINWINDOW_H

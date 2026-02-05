@@ -243,6 +243,10 @@ void MainWindow::setupUi()
 
     statusLayout->addWidget(m_statusLabel);
 
+    m_showOverlayCheckBox = new QCheckBox("显示悬浮窗", this);
+    m_showOverlayCheckBox->setChecked(true);
+    statusLayout->addWidget(m_showOverlayCheckBox);
+
     mainLayout->addWidget(statusGroup);
 
     // ========================================
@@ -321,6 +325,12 @@ void MainWindow::connectSignals()
             this, &MainWindow::onStartStopClicked);
     connect(m_changeHotkeyBtn, &QPushButton::clicked,
             this, &MainWindow::onChangeHotkeyClicked);
+
+    // ========================================
+    // 悬浮窗显示控制
+    // ========================================
+    connect(m_showOverlayCheckBox, &QCheckBox::toggled,
+            this, &MainWindow::onShowOverlayChanged);
 
     // ========================================
     // 鼠标点击器信号
@@ -493,6 +503,13 @@ void MainWindow::updateStatusDisplay()
     }
 }
 
+void MainWindow::onShowOverlayChanged(bool checked)
+{
+    if (m_overlay) {
+        m_overlay->setVisible(checked);
+    }
+}
+
 // ============================================================
 // 加载设置
 // ============================================================
@@ -527,10 +544,12 @@ void MainWindow::loadSettings()
     m_toggleHotkey = m_settings->toggleHotkey();
     m_hotkeyEdit->setText(KeyboardHook::keyCodeToString(m_toggleHotkey));
 
-    // 加载悬浮窗位置
+    // 加载悬浮窗位置和可见性
     if (m_overlay) {
         m_overlay->move(m_settings->overlayPos());
-        m_overlay->setVisible(m_settings->overlayVisible());
+        bool visible = m_settings->overlayVisible();
+        m_overlay->setVisible(visible);
+        m_showOverlayCheckBox->setChecked(visible);  // 同步复选框状态
     }
 
     qDebug() << "MainWindow: 设置加载完成";
