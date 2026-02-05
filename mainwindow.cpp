@@ -6,6 +6,7 @@
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "version.h"
 #include <QMessageBox>
 #include <QDebug>
 
@@ -30,13 +31,17 @@ MainWindow::MainWindow(QWidget *parent)
     , m_settings(nullptr)
     , m_toggleHotkey(VK_F8)          // 默认使用 F8 作为开关键
     , m_isCapturingHotkey(false)
+    , m_updateChecker(nullptr)
+    , m_checkUpdateBtn(nullptr)
+    , m_updateProgressBar(nullptr)
+    , m_updateStatusLabel(nullptr)
 {
     ui->setupUi(this);  // 初始化 Qt Designer 生成的 UI
 
-    // 设置窗口标题和大小
-    setWindowTitle("Nikke 鼠标宏");
-    setMinimumSize(350, 400);  // 设置最小尺寸，允许自由缩放
-    resize(400, 500);          // 设置初始大小
+    // 设置窗口标题和大小（包含版本号）
+    setWindowTitle(QString("Nikke 鼠标宏 v%1").arg(APP_VERSION));
+    setMinimumSize(350, 450);  // 设置最小尺寸，允许自由缩放
+    resize(400, 550);          // 设置初始大小
 
     // 获取设置管理器单例
     m_settings = SettingsManager::instance();
@@ -53,6 +58,9 @@ MainWindow::MainWindow(QWidget *parent)
     // 创建悬浮窗口
     m_overlay = new OverlayWidget();
     m_overlay->show();
+
+    // 创建更新检查器
+    m_updateChecker = new UpdateChecker(this);
 
     // 连接信号和槽
     connectSignals();
@@ -265,6 +273,31 @@ void MainWindow::setupUi()
 
     mainLayout->addLayout(btnLayout);
 
+    // ========================================
+    // 更新组
+    // ========================================
+    QGroupBox *updateGroup = new QGroupBox("软件更新", this);
+    QVBoxLayout *updateLayout = new QVBoxLayout(updateGroup);
+
+    // 更新状态标签
+    m_updateStatusLabel = new QLabel("点击按钮检查更新", this);
+    m_updateStatusLabel->setAlignment(Qt::AlignCenter);
+    updateLayout->addWidget(m_updateStatusLabel);
+
+    // 进度条（默认隐藏）
+    m_updateProgressBar = new QProgressBar(this);
+    m_updateProgressBar->setRange(0, 100);
+    m_updateProgressBar->setValue(0);
+    m_updateProgressBar->setVisible(false);
+    updateLayout->addWidget(m_updateProgressBar);
+
+    // 检查更新按钮
+    m_checkUpdateBtn = new QPushButton("检查更新", this);
+    m_checkUpdateBtn->setFixedHeight(30);
+    updateLayout->addWidget(m_checkUpdateBtn);
+
+    mainLayout->addWidget(updateGroup);
+
     // 添加弹性空间
     mainLayout->addStretch();
 }
@@ -347,6 +380,24 @@ void MainWindow::connectSignals()
             this, &MainWindow::onHookInstalled);
     connect(m_keyboardHook, &KeyboardHook::hookFailed,
             this, &MainWindow::onHookFailed);
+
+    // ========================================
+    // 更新检查器信号
+    // ========================================
+    connect(m_checkUpdateBtn, &QPushButton::clicked,
+            this, &MainWindow::onCheckUpdateClicked);
+    connect(m_updateChecker, &UpdateChecker::updateAvailable,
+            this, &MainWindow::onUpdateAvailable);
+    connect(m_updateChecker, &UpdateChecker::noUpdateAvailable,
+            this, &MainWindow::onNoUpdateAvailable);
+    connect(m_updateChecker, &UpdateChecker::checkFailed,
+            this, &MainWindow::onCheckUpdateFailed);
+    connect(m_updateChecker, &UpdateChecker::downloadProgress,
+            this, &MainWindow::onDownloadProgress);
+    connect(m_updateChecker, &UpdateChecker::downloadFinished,
+            this, &MainWindow::onDownloadFinished);
+    connect(m_updateChecker, &UpdateChecker::downloadFailed,
+            this, &MainWindow::onDownloadFailed);
 }
 
 // ============================================================
@@ -583,4 +634,125 @@ void MainWindow::saveSettings()
     m_settings->save();
 
     qDebug() << "MainWindow: 设置保存完成";
+}
+
+// ============================================================
+// 检查更新（公共方法）
+// ============================================================
+void MainWindow::checkForUpdates()
+{
+    if (m_updateChecker) {
+        m_updateChecker->checkForUpdates();
+    }
+}
+
+// ============================================================
+// 更新相关槽函数
+// ============================================================
+
+void MainWindow::onCheckUpdateClicked()
+{
+    m_checkUpdateBtn->setEnabled(false);
+    m_checkUpdateBtn->setText("检查中...");
+    m_updateStatusLabel->setText("正在检查更新...");
+    m_updateProgressBar->setVisible(false);
+
+    m_updateChecker->checkForUpdates();
+}
+
+void MainWindow::onUpdateAvailable(const QString& version, const QString& url, const QString& notes)
+{
+    Q_UNUSED(notes)
+
+    m_checkUpdateBtn->setEnabled(true);
+    m_checkUpdateBtn->setText("下载更新");
+    m_updateStatusLabel->setText(QString("发现新版本: v%1").arg(version));
+
+    // 询问用户是否下载
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        "发现新版本",
+        QString("发现新版本 v%1\n当前版本 v%2\n\n是否下载更新？")
+            .arg(version)
+            .arg(APP_VERSION),
+        QMessageBox::Yes | QMessageBox::No
+    );
+
+    if (reply == QMessageBox::Yes) {
+        // 开始下载
+        m_checkUpdateBtn->setEnabled(false);
+        m_checkUpdateBtn->setText("下载中...");
+        m_updateProgressBar->setVisible(true);
+        m_updateProgressBar->setValue(0);
+        m_updateChecker->downloadUpdate(url);
+    }
+}
+
+void MainWindow::onNoUpdateAvailable()
+{
+    m_checkUpdateBtn->setEnabled(true);
+    m_checkUpdateBtn->setText("检查更新");
+    m_updateStatusLabel->setText("当前已是最新版本");
+
+    QMessageBox::information(this, "检查更新",
+        QString("当前已是最新版本 v%1").arg(APP_VERSION));
+}
+
+void MainWindow::onCheckUpdateFailed(const QString& error)
+{
+    m_checkUpdateBtn->setEnabled(true);
+    m_checkUpdateBtn->setText("检查更新");
+    m_updateStatusLabel->setText("检查更新失败");
+
+    QMessageBox::warning(this, "检查更新失败",
+        QString("无法检查更新：\n%1").arg(error));
+}
+
+void MainWindow::onDownloadProgress(int percent)
+{
+    m_updateProgressBar->setValue(percent);
+    m_updateStatusLabel->setText(QString("下载中... %1%").arg(percent));
+}
+
+void MainWindow::onDownloadFinished(const QString& filePath)
+{
+    m_pendingUpdatePath = filePath;
+
+    m_checkUpdateBtn->setEnabled(true);
+    m_checkUpdateBtn->setText("立即更新");
+    m_updateStatusLabel->setText("下载完成，点击更新");
+    m_updateProgressBar->setVisible(false);
+
+    // 询问用户是否立即更新
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        "下载完成",
+        "更新包已下载完成。\n\n立即安装更新？\n（程序将自动重启）",
+        QMessageBox::Yes | QMessageBox::No
+    );
+
+    if (reply == QMessageBox::Yes) {
+        // 应用更新
+        m_updateChecker->applyUpdate(filePath);
+    } else {
+        // 断开按钮原有连接，改为应用更新
+        disconnect(m_checkUpdateBtn, &QPushButton::clicked,
+                   this, &MainWindow::onCheckUpdateClicked);
+        connect(m_checkUpdateBtn, &QPushButton::clicked, this, [this]() {
+            if (!m_pendingUpdatePath.isEmpty()) {
+                m_updateChecker->applyUpdate(m_pendingUpdatePath);
+            }
+        });
+    }
+}
+
+void MainWindow::onDownloadFailed(const QString& error)
+{
+    m_checkUpdateBtn->setEnabled(true);
+    m_checkUpdateBtn->setText("检查更新");
+    m_updateStatusLabel->setText("下载失败");
+    m_updateProgressBar->setVisible(false);
+
+    QMessageBox::warning(this, "下载失败",
+        QString("更新包下载失败：\n%1").arg(error));
 }

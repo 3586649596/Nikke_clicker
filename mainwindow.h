@@ -21,6 +21,7 @@
 #include <QLineEdit>        // 文本输入框
 #include <QVBoxLayout>      // 垂直布局
 #include <QHBoxLayout>      // 水平布局
+#include <QProgressBar>     // 进度条
 
 // ============================================================
 // 项目头文件
@@ -29,6 +30,7 @@
 #include "keyboardhook.h"       // 键盘钩子
 #include "overlaywidget.h"      // 悬浮窗口
 #include "settingsmanager.h"    // 设置管理器
+#include "updatechecker.h"      // 更新检查器
 
 // 前置声明（避免循环包含）
 QT_BEGIN_NAMESPACE
@@ -65,6 +67,11 @@ public:
      * @brief 析构函数
      */
     ~MainWindow();
+
+    /**
+     * @brief 检查更新（供外部调用）
+     */
+    void checkForUpdates();
 
 private slots:
     // ========================================================
@@ -133,6 +140,45 @@ private slots:
      * @param checked 是否选中
      */
     void onShowOverlayChanged(bool checked);
+
+    // ========================================================
+    // 更新相关槽函数
+    // ========================================================
+
+    /**
+     * @brief 检查更新按钮点击
+     */
+    void onCheckUpdateClicked();
+
+    /**
+     * @brief 发现新版本
+     */
+    void onUpdateAvailable(const QString& version, const QString& url, const QString& notes);
+
+    /**
+     * @brief 当前已是最新版本
+     */
+    void onNoUpdateAvailable();
+
+    /**
+     * @brief 检查更新失败
+     */
+    void onCheckUpdateFailed(const QString& error);
+
+    /**
+     * @brief 下载进度更新
+     */
+    void onDownloadProgress(int percent);
+
+    /**
+     * @brief 下载完成
+     */
+    void onDownloadFinished(const QString& filePath);
+
+    /**
+     * @brief 下载失败
+     */
+    void onDownloadFailed(const QString& error);
 
 private:
     // ========================================================
@@ -206,6 +252,13 @@ private:
     QLabel *m_statusLabel;              // 状态显示标签
     QPushButton *m_startStopBtn;        // 启动/停止按钮
     QCheckBox *m_showOverlayCheckBox;   // 显示悬浮窗复选框
+
+    // 更新相关
+    UpdateChecker *m_updateChecker;     // 更新检查器
+    QPushButton *m_checkUpdateBtn;      // 检查更新按钮
+    QProgressBar *m_updateProgressBar;  // 更新下载进度条
+    QLabel *m_updateStatusLabel;        // 更新状态标签
+    QString m_pendingUpdatePath;        // 待安装的更新包路径
 };
 
 #endif // MAINWINDOW_H

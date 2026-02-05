@@ -9,11 +9,13 @@
 // ============================================================
 #include <QApplication>     // Qt 应用程序类
 #include <QDebug>          // 调试输出
+#include <QTimer>          // 定时器
 
 // ============================================================
 // 项目头文件
 // ============================================================
 #include "mainwindow.h"
+#include "version.h"
 
 /**
  * @brief main - 程序入口函数
@@ -48,11 +50,11 @@ int main(int argc, char *argv[])
     // 设置应用程序信息（用于 QSettings 等）
     QApplication::setOrganizationName("NikkeQt");
     QApplication::setApplicationName("MouseMacro");
-    QApplication::setApplicationVersion("1.0.0");
+    QApplication::setApplicationVersion(APP_VERSION);
 
     // 输出启动信息
     qDebug() << "========================================";
-    qDebug() << "Nikke Qt 鼠标宏 v1.0.0";
+    qDebug() << "Nikke Qt 鼠标宏 v" << APP_VERSION;
     qDebug() << "========================================";
     qDebug() << "提示: 需要管理员权限才能在游戏中使用";
     qDebug() << "========================================";
@@ -65,7 +67,13 @@ int main(int argc, char *argv[])
     w.show();  // 显示窗口
 
     // ========================================
-    // 步骤3：进入事件循环
+    // 步骤3：启动时自动检查更新
+    // ========================================
+    // 使用 QTimer::singleShot 延迟检查，避免阻塞启动
+    QTimer::singleShot(2000, &w, &MainWindow::checkForUpdates);
+
+    // ========================================
+    // 步骤4：进入事件循环
     // ========================================
     // a.exec() 启动 Qt 的事件循环
     // 程序会在这里等待，直到所有窗口关闭或调用 quit()
