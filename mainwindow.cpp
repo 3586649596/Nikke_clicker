@@ -1,27 +1,15 @@
-// ============================================================
-// 文件名：mainwindow.cpp
-// 功能：主窗口 - 实现文件
-// 说明：实现主窗口的界面和逻辑
-// ============================================================
-
-#include "mainwindow.h"
+﻿#include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "theme_manager.h"
 #include "version.h"
-#include <QMessageBox>
-#include <QDebug>
 
-// ============================================================
-// 构造函数
-// ============================================================
-/**
- * @brief MainWindow 构造函数
- *
- * 初始化流程：
- * 1. 创建 UI 控件
- * 2. 创建核心对象（MouseClicker, KeyboardHook）
- * 3. 连接信号和槽
- * 4. 初始化键盘钩子
- */
+#include <QApplication>
+#include <QEvent>
+#include <QGridLayout>
+#include <QIcon>
+#include <QMessageBox>
+#include <QStyle>
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -29,72 +17,78 @@ MainWindow::MainWindow(QWidget *parent)
     , m_keyboardHook(nullptr)
     , m_overlay(nullptr)
     , m_settings(nullptr)
-    , m_toggleHotkey(VK_F8)          // 默认使用 F8 作为开关键
+    , m_toggleHotkey(VK_F8)
     , m_isCapturingHotkey(false)
+    , m_hookReady(false)
+    , m_statusLabel(nullptr)
+    , m_statusBadge(nullptr)
+    , m_runtimeSummaryLabel(nullptr)
+    , m_hotkeyEdit(nullptr)
+    , m_changeHotkeyBtn(nullptr)
+    , m_presetButtonGroup(nullptr)
+    , m_presetStableBtn(nullptr)
+    , m_presetBalancedBtn(nullptr)
+    , m_presetAggressiveBtn(nullptr)
+    , m_clickIntervalSlider(nullptr)
+    , m_clickIntervalSpinBox(nullptr)
+    , m_pressDownSlider(nullptr)
+    , m_pressDownSpinBox(nullptr)
+    , m_randomDelaySlider(nullptr)
+    , m_randomDelaySpinBox(nullptr)
+    , m_sendInputRadio(nullptr)
+    , m_postMessageRadio(nullptr)
+    , m_startStopBtn(nullptr)
+    , m_showOverlayCheckBox(nullptr)
     , m_updateChecker(nullptr)
     , m_checkUpdateBtn(nullptr)
     , m_updateProgressBar(nullptr)
     , m_updateStatusLabel(nullptr)
+    , m_statusFadeEffect(nullptr)
+    , m_statusFadeAnimation(nullptr)
 {
-    ui->setupUi(this);  // 初始化 Qt Designer 生成的 UI
+    ui->setupUi(this);
 
-    // 设置窗口标题和大小（包含版本号）
     setWindowTitle(QString("Nikke 鼠标宏 v%1").arg(APP_VERSION));
-    setMinimumSize(420, 680);  // 设置最小尺寸，确保内容完整显示
-    resize(450, 720);          // 设置初始大小
+    setWindowIcon(QIcon(":/icons/logo.svg"));
+    setMinimumSize(460, 720);
+    resize(520, 800);
 
-    // 获取设置管理器单例
     m_settings = SettingsManager::instance();
 
-    // 创建界面
     setupUi();
 
-    // 创建鼠标点击器
     m_clicker = new MouseClicker(this);
-
-    // 获取键盘钩子单例
     m_keyboardHook = KeyboardHook::instance();
 
-    // 创建悬浮窗口
     m_overlay = new OverlayWidget();
+    m_overlay->setThemeDark(ThemeManager::isSystemDark());
     m_overlay->show();
 
-    // 创建更新检查器
     m_updateChecker = new UpdateChecker(this);
 
-    // 连接信号和槽
     connectSignals();
-
-    // 加载设置
     loadSettings();
-
-    // 初始化键盘钩子
     initKeyboardHook();
 
-    qDebug() << "MainWindow: 初始化完成";
+    ThemeManager::apply(this);
+    updateStatusDisplay();
+    refreshRuntimeSummary();
 }
 
-// ============================================================
-// 析构函数
-// ============================================================
 MainWindow::~MainWindow()
 {
-    // 保存设置
     saveSettings();
 
-    // 停止点击器
     if (m_clicker && m_clicker->isClicking()) {
         m_clicker->stopClicking();
         m_clicker->wait(1000);
     }
 
-    // 停止键盘钩子
     if (m_keyboardHook && m_keyboardHook->isHookInstalled()) {
         m_keyboardHook->stopHook();
         m_keyboardHook->wait(1000);
     }
 
-    // 关闭悬浮窗口
     if (m_overlay) {
         m_overlay->close();
         delete m_overlay;
@@ -102,252 +96,307 @@ MainWindow::~MainWindow()
     }
 
     delete ui;
-    qDebug() << "MainWindow: 已销毁";
 }
 
-// ============================================================
-// 创建 UI
-// ============================================================
-/**
- * @brief 创建用户界面
- *
- * 使用代码方式创建 UI，而不是使用 .ui 文件。
- * 这样可以更清楚地了解 Qt 布局系统的工作方式。
- *
- * 学习要点：
- * 1. QVBoxLayout/QHBoxLayout - 垂直/水平布局
- * 2. QGroupBox - 分组框，用于组织相关控件
- * 3. addWidget() - 向布局中添加控件
- * 4. addLayout() - 向布局中添加子布局
- */
+void MainWindow::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::ApplicationPaletteChange ||
+        event->type() == QEvent::PaletteChange) {
+        ThemeManager::apply(this);
+        if (m_overlay) {
+            m_overlay->setThemeDark(ThemeManager::isSystemDark());
+        }
+        updateDynamicStateStyles();
+    }
+
+    QMainWindow::changeEvent(event);
+}
+
 void MainWindow::setupUi()
 {
-    // 创建中央窗口部件
     QWidget *centralWidget = new QWidget(this);
+    centralWidget->setObjectName("centralSurface");
     setCentralWidget(centralWidget);
 
-    // 创建主布局（垂直布局）
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
-    mainLayout->setSpacing(10);         // 控件间距（优化后减小）
-    mainLayout->setContentsMargins(15, 15, 15, 15);  // 边距（优化后减小）
+    mainLayout->setContentsMargins(16, 16, 16, 16);
+    mainLayout->setSpacing(12);
 
-    // ========================================
-    // 快捷键设置组
-    // ========================================
-    QGroupBox *hotkeyGroup = new QGroupBox("快捷键设置", this);
-    QHBoxLayout *hotkeyLayout = new QHBoxLayout(hotkeyGroup);
+    buildHeroSection(mainLayout);
+    buildControlSection(mainLayout);
+    buildUpdateSection(mainLayout);
 
-    QLabel *hotkeyLabel = new QLabel("开启/关闭:", this);
+    mainLayout->addStretch();
+
+    ThemeManager::apply(this);
+}
+
+void MainWindow::buildHeroSection(QVBoxLayout *mainLayout)
+{
+    QFrame *heroCard = new QFrame(this);
+    heroCard->setObjectName("heroCard");
+
+    QVBoxLayout *heroLayout = new QVBoxLayout(heroCard);
+    heroLayout->setContentsMargins(16, 16, 16, 16);
+    heroLayout->setSpacing(12);
+
+    QHBoxLayout *titleLayout = new QHBoxLayout();
+
+    QLabel *logoLabel = new QLabel(this);
+    logoLabel->setPixmap(QIcon(":/icons/logo.svg").pixmap(28, 28));
+
+    QVBoxLayout *titleTextLayout = new QVBoxLayout();
+    titleTextLayout->setSpacing(2);
+
+    QLabel *heroTitle = new QLabel("Nikke 鼠标宏", this);
+    heroTitle->setObjectName("heroTitle");
+
+    QLabel *heroSubtitle = new QLabel("单屏 HUD 控制台", this);
+    heroSubtitle->setObjectName("heroSubtitle");
+
+    titleTextLayout->addWidget(heroTitle);
+    titleTextLayout->addWidget(heroSubtitle);
+
+    titleLayout->addWidget(logoLabel);
+    titleLayout->addLayout(titleTextLayout);
+    titleLayout->addStretch();
+
+    heroLayout->addLayout(titleLayout);
+
+    m_statusBadge = new QLabel("已停止", this);
+    m_statusBadge->setObjectName("statusBadge");
+    m_statusBadge->setAlignment(Qt::AlignCenter);
+
+    m_statusFadeEffect = new QGraphicsOpacityEffect(this);
+    m_statusFadeEffect->setOpacity(1.0);
+    m_statusBadge->setGraphicsEffect(m_statusFadeEffect);
+
+    m_statusFadeAnimation = new QPropertyAnimation(m_statusFadeEffect, "opacity", this);
+    m_statusFadeAnimation->setDuration(180);
+
+    heroLayout->addWidget(m_statusBadge, 0, Qt::AlignLeft);
+
+    m_statusLabel = new QLabel("待命中（热键初始化中）", this);
+    m_statusLabel->setObjectName("sectionHint");
+    heroLayout->addWidget(m_statusLabel);
+
+    QHBoxLayout *controlLayout = new QHBoxLayout();
+    controlLayout->setSpacing(10);
+
+    m_startStopBtn = new QPushButton("启动", this);
+    m_startStopBtn->setObjectName("primaryToggleButton");
+    m_startStopBtn->setMinimumHeight(48);
+
+    QFrame *hotkeyPanel = new QFrame(this);
+    hotkeyPanel->setObjectName("panelCard");
+    QHBoxLayout *hotkeyLayout = new QHBoxLayout(hotkeyPanel);
+    hotkeyLayout->setContentsMargins(10, 8, 10, 8);
+    hotkeyLayout->setSpacing(8);
+
+    QLabel *hotkeyIcon = new QLabel(this);
+    hotkeyIcon->setPixmap(QIcon(":/icons/hotkey.svg").pixmap(16, 16));
+
+    QLabel *hotkeyTitle = new QLabel("热键", this);
+    hotkeyTitle->setObjectName("bodyText");
+
     m_hotkeyEdit = new QLineEdit(this);
-    m_hotkeyEdit->setReadOnly(true);    // 设为只读
-    m_hotkeyEdit->setText("F8");        // 默认显示 F8
-    m_hotkeyEdit->setFixedWidth(80);
+    m_hotkeyEdit->setObjectName("hotkeyValue");
+    m_hotkeyEdit->setReadOnly(true);
+    m_hotkeyEdit->setText("F8");
     m_hotkeyEdit->setAlignment(Qt::AlignCenter);
+    m_hotkeyEdit->setFixedWidth(80);
 
     m_changeHotkeyBtn = new QPushButton("修改", this);
-    m_changeHotkeyBtn->setFixedWidth(60);
+    m_changeHotkeyBtn->setObjectName("changeHotkeyButton");
 
-    hotkeyLayout->addWidget(hotkeyLabel);
+    hotkeyLayout->addWidget(hotkeyIcon);
+    hotkeyLayout->addWidget(hotkeyTitle);
     hotkeyLayout->addWidget(m_hotkeyEdit);
     hotkeyLayout->addWidget(m_changeHotkeyBtn);
-    hotkeyLayout->addStretch();  // 添加弹性空间，把控件推到左边
 
-    mainLayout->addWidget(hotkeyGroup);
+    controlLayout->addWidget(m_startStopBtn, 1);
+    controlLayout->addWidget(hotkeyPanel, 2);
 
-    // ========================================
-    // 射击参数组
-    // ========================================
-    QGroupBox *paramGroup = new QGroupBox("射击参数", this);
-    paramGroup->setMinimumSize(350, 150);  // 设置最小宽度和高度
-    paramGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);  // 水平扩展，垂直固定
-    QVBoxLayout *paramLayout = new QVBoxLayout(paramGroup);
+    heroLayout->addLayout(controlLayout);
 
-    // --- 点击间隔 ---
-    QHBoxLayout *intervalLayout = new QHBoxLayout();
-    QLabel *intervalLabel = new QLabel("点击间隔:", this);
-    intervalLabel->setMinimumWidth(75);
-    intervalLabel->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+    mainLayout->addWidget(heroCard);
+}
 
-    m_clickIntervalSlider = new QSlider(Qt::Horizontal, this);
-    m_clickIntervalSlider->setRange(10, 500);   // 范围 10-500 毫秒
-    m_clickIntervalSlider->setValue(20);        // 默认 20 毫秒
-    m_clickIntervalSlider->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+void MainWindow::buildControlSection(QVBoxLayout *mainLayout)
+{
+    QFrame *panelCard = new QFrame(this);
+    panelCard->setObjectName("panelCard");
 
-    m_clickIntervalSpinBox = new QSpinBox(this);
-    m_clickIntervalSpinBox->setRange(10, 500);
-    m_clickIntervalSpinBox->setValue(20);
-    m_clickIntervalSpinBox->setSuffix(" ms");   // 添加单位后缀
-    m_clickIntervalSpinBox->setFixedWidth(150);  // 固定宽度确保完整显示
-    m_clickIntervalSpinBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    QVBoxLayout *panelLayout = new QVBoxLayout(panelCard);
+    panelLayout->setContentsMargins(16, 16, 16, 16);
+    panelLayout->setSpacing(12);
 
-    intervalLayout->addWidget(intervalLabel);
-    intervalLayout->addWidget(m_clickIntervalSlider);
-    intervalLayout->addWidget(m_clickIntervalSpinBox);
-    intervalLayout->setStretch(0, 0);  // 标签：不伸展
-    intervalLayout->setStretch(1, 1);  // 滑块：伸展
-    intervalLayout->setStretch(2, 0);  // SpinBox：不伸展
-    paramLayout->addLayout(intervalLayout);
+    QHBoxLayout *headerLayout = new QHBoxLayout();
 
-    // --- 按下时长 ---
-    QHBoxLayout *pressDownLayout = new QHBoxLayout();
-    QLabel *pressDownLabel = new QLabel("按下时长:", this);
-    pressDownLabel->setMinimumWidth(75);
-    pressDownLabel->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+    QLabel *paramIcon = new QLabel(this);
+    paramIcon->setPixmap(QIcon(":/icons/params.svg").pixmap(18, 18));
 
-    m_pressDownSlider = new QSlider(Qt::Horizontal, this);
-    m_pressDownSlider->setRange(10, 1000);      // 范围 10-1000 毫秒
-    m_pressDownSlider->setValue(200);           // 默认 200 毫秒
-    m_pressDownSlider->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    QLabel *title = new QLabel("参数与行为", this);
+    title->setObjectName("sectionTitle");
 
-    m_pressDownSpinBox = new QSpinBox(this);
-    m_pressDownSpinBox->setRange(10, 1000);
-    m_pressDownSpinBox->setValue(200);
-    m_pressDownSpinBox->setSuffix(" ms");
-    m_pressDownSpinBox->setFixedWidth(150);  // 固定宽度确保完整显示
-    m_pressDownSpinBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    QLabel *hint = new QLabel("调参后实时生效", this);
+    hint->setObjectName("sectionHint");
 
-    pressDownLayout->addWidget(pressDownLabel);
-    pressDownLayout->addWidget(m_pressDownSlider);
-    pressDownLayout->addWidget(m_pressDownSpinBox);
-    pressDownLayout->setStretch(0, 0);  // 标签：不伸展
-    pressDownLayout->setStretch(1, 1);  // 滑块：伸展
-    pressDownLayout->setStretch(2, 0);  // SpinBox：不伸展
-    paramLayout->addLayout(pressDownLayout);
+    headerLayout->addWidget(paramIcon);
+    headerLayout->addWidget(title);
+    headerLayout->addStretch();
+    headerLayout->addWidget(hint);
+    panelLayout->addLayout(headerLayout);
 
-    // --- 随机延迟 ---
-    QHBoxLayout *randomLayout = new QHBoxLayout();
-    QLabel *randomLabel = new QLabel("随机延迟:", this);
-    randomLabel->setMinimumWidth(75);
-    randomLabel->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+    m_presetButtonGroup = new QButtonGroup(this);
+    m_presetButtonGroup->setExclusive(true);
 
-    m_randomDelaySlider = new QSlider(Qt::Horizontal, this);
-    m_randomDelaySlider->setRange(0, 50);       // 范围 0-50 毫秒
-    m_randomDelaySlider->setValue(5);           // 默认 ±5 毫秒
-    m_randomDelaySlider->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    QHBoxLayout *presetLayout = new QHBoxLayout();
+    presetLayout->setSpacing(8);
 
-    m_randomDelaySpinBox = new QSpinBox(this);
-    m_randomDelaySpinBox->setRange(0, 50);
-    m_randomDelaySpinBox->setValue(5);
-    m_randomDelaySpinBox->setPrefix("±");       // 添加前缀
-    m_randomDelaySpinBox->setSuffix(" ms");
-    m_randomDelaySpinBox->setFixedWidth(150);  // 固定宽度确保完整显示
-    m_randomDelaySpinBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    QLabel *presetLabel = new QLabel("预设", this);
+    presetLabel->setObjectName("bodyText");
 
-    randomLayout->addWidget(randomLabel);
-    randomLayout->addWidget(m_randomDelaySlider);
-    randomLayout->addWidget(m_randomDelaySpinBox);
-    randomLayout->setStretch(0, 0);  // 标签：不伸展
-    randomLayout->setStretch(1, 1);  // 滑块：伸展
-    randomLayout->setStretch(2, 0);  // SpinBox：不伸展
-    paramLayout->addLayout(randomLayout);
+    m_presetStableBtn = new QPushButton("稳定", this);
+    m_presetBalancedBtn = new QPushButton("均衡", this);
+    m_presetAggressiveBtn = new QPushButton("激进", this);
 
-    mainLayout->addWidget(paramGroup);
+    m_presetStableBtn->setObjectName("presetButton");
+    m_presetBalancedBtn->setObjectName("presetButton");
+    m_presetAggressiveBtn->setObjectName("presetButton");
 
-    // ========================================
-    // 点击模式组
-    // ========================================
-    QGroupBox *modeGroup = new QGroupBox("点击模式", this);
-    modeGroup->setMinimumSize(350, 100);  // 设置最小宽度和高度
-    modeGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);  // 水平扩展，垂直固定
-    QHBoxLayout *modeLayout = new QHBoxLayout(modeGroup);
+    m_presetStableBtn->setCheckable(true);
+    m_presetBalancedBtn->setCheckable(true);
+    m_presetAggressiveBtn->setCheckable(true);
 
-    m_sendInputRadio = new QRadioButton("SendInput (推荐)", this);
+    m_presetButtonGroup->addButton(m_presetStableBtn, static_cast<int>(UiPreset::Stable));
+    m_presetButtonGroup->addButton(m_presetBalancedBtn, static_cast<int>(UiPreset::Balanced));
+    m_presetButtonGroup->addButton(m_presetAggressiveBtn, static_cast<int>(UiPreset::Aggressive));
+
+    presetLayout->addWidget(presetLabel);
+    presetLayout->addWidget(m_presetStableBtn);
+    presetLayout->addWidget(m_presetBalancedBtn);
+    presetLayout->addWidget(m_presetAggressiveBtn);
+    presetLayout->addStretch();
+
+    panelLayout->addLayout(presetLayout);
+
+    auto addSliderRow = [this, panelLayout](const QString& labelText,
+                                             int min,
+                                             int max,
+                                             int value,
+                                             QSlider **slider,
+                                             QSpinBox **spinBox,
+                                             const QString& prefix,
+                                             const QString& suffix) {
+        QHBoxLayout *rowLayout = new QHBoxLayout();
+        rowLayout->setSpacing(8);
+
+        QLabel *label = new QLabel(labelText, this);
+        label->setObjectName("bodyText");
+        label->setMinimumWidth(80);
+
+        *slider = new QSlider(Qt::Horizontal, this);
+        (*slider)->setRange(min, max);
+        (*slider)->setValue(value);
+
+        *spinBox = new QSpinBox(this);
+        (*spinBox)->setRange(min, max);
+        (*spinBox)->setValue(value);
+        (*spinBox)->setPrefix(prefix);
+        (*spinBox)->setSuffix(suffix);
+        (*spinBox)->setFixedWidth(120);
+
+        rowLayout->addWidget(label);
+        rowLayout->addWidget(*slider, 1);
+        rowLayout->addWidget(*spinBox);
+
+        panelLayout->addLayout(rowLayout);
+    };
+
+    addSliderRow("点击间隔", 10, 500, 20,
+                 &m_clickIntervalSlider, &m_clickIntervalSpinBox,
+                 "", " ms");
+
+    addSliderRow("按下时长", 10, 1000, 200,
+                 &m_pressDownSlider, &m_pressDownSpinBox,
+                 "", " ms");
+
+    addSliderRow("随机延迟", 0, 50, 5,
+                 &m_randomDelaySlider, &m_randomDelaySpinBox,
+                 "±", " ms");
+
+    QHBoxLayout *modeLayout = new QHBoxLayout();
+    modeLayout->setSpacing(12);
+
+    QLabel *modeIcon = new QLabel(this);
+    modeIcon->setPixmap(QIcon(":/icons/mode.svg").pixmap(18, 18));
+
+    m_sendInputRadio = new QRadioButton("SendInput（推荐）", this);
     m_postMessageRadio = new QRadioButton("PostMessage", this);
-    m_sendInputRadio->setChecked(true);  // 默认选中 SendInput
+    m_sendInputRadio->setChecked(true);
 
+    modeLayout->addWidget(modeIcon);
     modeLayout->addWidget(m_sendInputRadio);
     modeLayout->addWidget(m_postMessageRadio);
     modeLayout->addStretch();
 
-    mainLayout->addWidget(modeGroup);
-
-    // ========================================
-    // 状态显示组
-    // ========================================
-    QGroupBox *statusGroup = new QGroupBox("状态", this);
-    statusGroup->setMinimumSize(350, 100);  // 设置最小宽度和高度
-    statusGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);  // 水平扩展，垂直固定
-    QVBoxLayout *statusLayout = new QVBoxLayout(statusGroup);
-
-    m_statusLabel = new QLabel("当前状态: 已停止", this);
-    m_statusLabel->setAlignment(Qt::AlignCenter);
-    m_statusLabel->setStyleSheet("font-size: 14px; font-weight: bold;");
-
-    statusLayout->addWidget(m_statusLabel);
+    panelLayout->addLayout(modeLayout);
 
     m_showOverlayCheckBox = new QCheckBox("显示悬浮窗", this);
     m_showOverlayCheckBox->setChecked(true);
-    statusLayout->addWidget(m_showOverlayCheckBox);
+    panelLayout->addWidget(m_showOverlayCheckBox);
 
-    mainLayout->addWidget(statusGroup);
+    m_runtimeSummaryLabel = new QLabel("", this);
+    m_runtimeSummaryLabel->setObjectName("runtimeSummary");
+    panelLayout->addWidget(m_runtimeSummaryLabel);
 
-    // ========================================
-    // 控制按钮
-    // ========================================
-    QHBoxLayout *btnLayout = new QHBoxLayout();
+    mainLayout->addWidget(panelCard);
+}
 
-    m_startStopBtn = new QPushButton("启动", this);
-    m_startStopBtn->setFixedHeight(40);
-    m_startStopBtn->setStyleSheet(
-        "QPushButton { background-color: #4CAF50; color: white; font-size: 14px; }"
-        "QPushButton:hover { background-color: #45a049; }"
-    );
+void MainWindow::buildUpdateSection(QVBoxLayout *mainLayout)
+{
+    QFrame *panelCard = new QFrame(this);
+    panelCard->setObjectName("panelCard");
 
-    btnLayout->addWidget(m_startStopBtn);
+    QVBoxLayout *panelLayout = new QVBoxLayout(panelCard);
+    panelLayout->setContentsMargins(16, 16, 16, 16);
+    panelLayout->setSpacing(10);
 
-    mainLayout->addLayout(btnLayout);
+    QHBoxLayout *titleLayout = new QHBoxLayout();
 
-    // ========================================
-    // 更新组
-    // ========================================
-    QGroupBox *updateGroup = new QGroupBox("软件更新", this);
-    updateGroup->setMinimumSize(350, 100);  // 设置最小宽度和高度
-    updateGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);  // 水平扩展，垂直固定
-    QVBoxLayout *updateLayout = new QVBoxLayout(updateGroup);
+    QLabel *updateIcon = new QLabel(this);
+    updateIcon->setPixmap(QIcon(":/icons/update.svg").pixmap(18, 18));
 
-    // 更新状态标签
+    QLabel *title = new QLabel("软件更新", this);
+    title->setObjectName("sectionTitle");
+
+    titleLayout->addWidget(updateIcon);
+    titleLayout->addWidget(title);
+    titleLayout->addStretch();
+
+    panelLayout->addLayout(titleLayout);
+
     m_updateStatusLabel = new QLabel("点击按钮检查更新", this);
-    m_updateStatusLabel->setAlignment(Qt::AlignCenter);
-    updateLayout->addWidget(m_updateStatusLabel);
+    m_updateStatusLabel->setObjectName("sectionHint");
+    panelLayout->addWidget(m_updateStatusLabel);
 
-    // 进度条（默认隐藏）
     m_updateProgressBar = new QProgressBar(this);
     m_updateProgressBar->setRange(0, 100);
     m_updateProgressBar->setValue(0);
     m_updateProgressBar->setVisible(false);
-    updateLayout->addWidget(m_updateProgressBar);
+    panelLayout->addWidget(m_updateProgressBar);
 
-    // 检查更新按钮
     m_checkUpdateBtn = new QPushButton("检查更新", this);
-    m_checkUpdateBtn->setFixedHeight(30);
-    updateLayout->addWidget(m_checkUpdateBtn);
+    m_checkUpdateBtn->setObjectName("secondaryButton");
+    m_checkUpdateBtn->setMinimumHeight(34);
+    panelLayout->addWidget(m_checkUpdateBtn, 0, Qt::AlignLeft);
 
-    mainLayout->addWidget(updateGroup);
-
-    // 添加弹性空间
-    mainLayout->addStretch();
+    mainLayout->addWidget(panelCard);
 }
 
-// ============================================================
-// 连接信号和槽
-// ============================================================
-/**
- * @brief 连接所有信号和槽
- *
- * Qt 信号槽机制说明：
- * connect(发送者, &发送者类::信号, 接收者, &接收者类::槽)
- *
- * 新语法的优点：
- * 1. 编译时检查，避免拼写错误
- * 2. 支持 lambda 表达式
- * 3. 更好的类型安全
- */
 void MainWindow::connectSignals()
 {
-    // ========================================
-    // 滑块和数字框同步
-    // ========================================
-    // 点击间隔：滑块和数字框双向绑定
     connect(m_clickIntervalSlider, &QSlider::valueChanged,
             m_clickIntervalSpinBox, &QSpinBox::setValue);
     connect(m_clickIntervalSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
@@ -355,7 +404,6 @@ void MainWindow::connectSignals()
     connect(m_clickIntervalSlider, &QSlider::valueChanged,
             this, &MainWindow::onClickIntervalChanged);
 
-    // 按下时长
     connect(m_pressDownSlider, &QSlider::valueChanged,
             m_pressDownSpinBox, &QSpinBox::setValue);
     connect(m_pressDownSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
@@ -363,7 +411,6 @@ void MainWindow::connectSignals()
     connect(m_pressDownSlider, &QSlider::valueChanged,
             this, &MainWindow::onPressDownDurationChanged);
 
-    // 随机延迟
     connect(m_randomDelaySlider, &QSlider::valueChanged,
             m_randomDelaySpinBox, &QSpinBox::setValue);
     connect(m_randomDelaySpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
@@ -371,35 +418,24 @@ void MainWindow::connectSignals()
     connect(m_randomDelaySlider, &QSlider::valueChanged,
             this, &MainWindow::onRandomDelayChanged);
 
-    // ========================================
-    // 点击模式
-    // ========================================
     connect(m_sendInputRadio, &QRadioButton::toggled,
             this, &MainWindow::onClickModeChanged);
 
-    // ========================================
-    // 按钮
-    // ========================================
     connect(m_startStopBtn, &QPushButton::clicked,
             this, &MainWindow::onStartStopClicked);
     connect(m_changeHotkeyBtn, &QPushButton::clicked,
             this, &MainWindow::onChangeHotkeyClicked);
 
-    // ========================================
-    // 悬浮窗显示控制
-    // ========================================
+    connect(m_presetButtonGroup, &QButtonGroup::idClicked, this, [this](int id) {
+        applyPreset(static_cast<UiPreset>(id), true);
+    });
+
     connect(m_showOverlayCheckBox, &QCheckBox::toggled,
             this, &MainWindow::onShowOverlayChanged);
 
-    // ========================================
-    // 鼠标点击器信号
-    // ========================================
     connect(m_clicker, &MouseClicker::statusChanged,
             this, &MainWindow::onClickerStatusChanged);
 
-    // ========================================
-    // 键盘钩子信号
-    // ========================================
     connect(m_keyboardHook, &KeyboardHook::hotkeyPressed,
             this, &MainWindow::onHotkeyPressed);
     connect(m_keyboardHook, &KeyboardHook::hookInstalled,
@@ -407,9 +443,6 @@ void MainWindow::connectSignals()
     connect(m_keyboardHook, &KeyboardHook::hookFailed,
             this, &MainWindow::onHookFailed);
 
-    // ========================================
-    // 更新检查器信号
-    // ========================================
     connect(m_checkUpdateBtn, &QPushButton::clicked,
             this, &MainWindow::onCheckUpdateClicked);
     connect(m_updateChecker, &UpdateChecker::updateAvailable,
@@ -426,23 +459,11 @@ void MainWindow::connectSignals()
             this, &MainWindow::onDownloadFailed);
 }
 
-// ============================================================
-// 初始化键盘钩子
-// ============================================================
 void MainWindow::initKeyboardHook()
 {
-    // 注册默认快捷键 F8
     m_keyboardHook->registerHotkey(m_toggleHotkey, "toggle");
-
-    // 启动键盘钩子线程
     m_keyboardHook->start();
-
-    qDebug() << "MainWindow: 键盘钩子初始化中...";
 }
-
-// ============================================================
-// 槽函数实现
-// ============================================================
 
 void MainWindow::onStartStopClicked()
 {
@@ -452,19 +473,22 @@ void MainWindow::onStartStopClicked()
 void MainWindow::onClickIntervalChanged(int value)
 {
     m_clicker->setClickInterval(value);
-    qDebug() << "MainWindow: 点击间隔改为" << value << "ms";
+    syncPresetSelectionWithValues();
+    refreshRuntimeSummary();
 }
 
 void MainWindow::onPressDownDurationChanged(int value)
 {
     m_clicker->setPressDownDuration(value);
-    qDebug() << "MainWindow: 按下时长改为" << value << "ms";
+    syncPresetSelectionWithValues();
+    refreshRuntimeSummary();
 }
 
 void MainWindow::onRandomDelayChanged(int value)
 {
     m_clicker->setRandomDelayRange(value);
-    qDebug() << "MainWindow: 随机延迟改为 ±" << value << "ms";
+    syncPresetSelectionWithValues();
+    refreshRuntimeSummary();
 }
 
 void MainWindow::onClickModeChanged()
@@ -474,56 +498,47 @@ void MainWindow::onClickModeChanged()
     } else {
         m_clicker->setClickMode(MouseClicker::PostMessageMode);
     }
+
+    refreshRuntimeSummary();
 }
 
 void MainWindow::onChangeHotkeyClicked()
 {
     if (!m_isCapturingHotkey) {
-        // 开始捕获新快捷键
         m_isCapturingHotkey = true;
         m_changeHotkeyBtn->setText("取消");
         m_hotkeyEdit->setText("按下新按键...");
-        m_hotkeyEdit->setStyleSheet("background-color: #FFFFCC;");  // 黄色背景提示
-
-        // 启用键盘钩子的捕获模式，捕获所有按键
+        m_hotkeyEdit->setProperty("capturing", true);
+        repolish(m_hotkeyEdit);
         m_keyboardHook->setCaptureMode(true);
     } else {
-        // 取消捕获
         m_isCapturingHotkey = false;
         m_changeHotkeyBtn->setText("修改");
         m_hotkeyEdit->setText(KeyboardHook::keyCodeToString(m_toggleHotkey));
-        m_hotkeyEdit->setStyleSheet("");
-
-        // 关闭捕获模式
+        m_hotkeyEdit->setProperty("capturing", false);
+        repolish(m_hotkeyEdit);
         m_keyboardHook->setCaptureMode(false);
     }
 }
 
 void MainWindow::onHotkeyPressed(int vkCode, const QString& name)
 {
-    qDebug() << "MainWindow: 收到快捷键信号 -" << name << "键码:" << Qt::hex << vkCode;
-
-    // 如果正在捕获新快捷键
     if (m_isCapturingHotkey) {
-        // 关闭捕获模式
         m_keyboardHook->setCaptureMode(false);
 
-        // 更新快捷键
-        m_keyboardHook->unregisterHotkey(m_toggleHotkey);  // 注销旧快捷键
+        m_keyboardHook->unregisterHotkey(m_toggleHotkey);
         m_toggleHotkey = vkCode;
-        m_keyboardHook->registerHotkey(vkCode, "toggle");  // 注册新快捷键
+        m_keyboardHook->registerHotkey(vkCode, "toggle");
 
-        // 更新 UI
         m_hotkeyEdit->setText(KeyboardHook::keyCodeToString(vkCode));
-        m_hotkeyEdit->setStyleSheet("");
+        m_hotkeyEdit->setProperty("capturing", false);
+        repolish(m_hotkeyEdit);
+
         m_changeHotkeyBtn->setText("修改");
         m_isCapturingHotkey = false;
-
-        qDebug() << "MainWindow: 快捷键已更新为" << KeyboardHook::keyCodeToString(vkCode);
         return;
     }
 
-    // 正常快捷键处理：切换点击器状态
     if (name == "toggle") {
         m_clicker->toggle();
     }
@@ -531,53 +546,75 @@ void MainWindow::onHotkeyPressed(int vkCode, const QString& name)
 
 void MainWindow::onClickerStatusChanged(bool running)
 {
-    updateStatusDisplay();
-
-    // 更新悬浮窗口状态
     if (m_overlay) {
         m_overlay->setRunning(running);
     }
 
-    if (running) {
-        m_startStopBtn->setText("停止");
-        m_startStopBtn->setStyleSheet(
-            "QPushButton { background-color: #f44336; color: white; font-size: 14px; }"
-            "QPushButton:hover { background-color: #da190b; }"
-        );
-    } else {
-        m_startStopBtn->setText("启动");
-        m_startStopBtn->setStyleSheet(
-            "QPushButton { background-color: #4CAF50; color: white; font-size: 14px; }"
-            "QPushButton:hover { background-color: #45a049; }"
-        );
-    }
+    updateStatusDisplay();
+    playStatusAnimation();
 }
 
 void MainWindow::onHookInstalled()
 {
-    qDebug() << "MainWindow: 键盘钩子已安装";
-    m_statusLabel->setText("当前状态: 已停止 (快捷键就绪)");
+    m_hookReady = true;
+    updateStatusDisplay();
 }
 
 void MainWindow::onHookFailed(const QString& error)
 {
-    qDebug() << "MainWindow: 键盘钩子安装失败 -" << error;
+    m_hookReady = false;
     QMessageBox::warning(this, "警告",
         "键盘钩子安装失败，快捷键功能不可用。\n"
         "请尝试以管理员身份运行程序。\n\n"
         "错误信息: " + error);
-    m_statusLabel->setText("当前状态: 钩子失败");
+
+    updateStatusDisplay();
 }
 
 void MainWindow::updateStatusDisplay()
 {
-    if (m_clicker->isClicking()) {
-        m_statusLabel->setText("当前状态: 运行中");
-        m_statusLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: green;");
+    const bool running = m_clicker && m_clicker->isClicking();
+
+    if (running) {
+        m_statusBadge->setText("运行中");
+        m_statusLabel->setText("自动点击已启动，按热键可立即停止");
+    } else if (m_hookReady) {
+        m_statusBadge->setText("已停止");
+        m_statusLabel->setText("待命中（热键已就绪）");
     } else {
-        m_statusLabel->setText("当前状态: 已停止");
-        m_statusLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: gray;");
+        m_statusBadge->setText("已停止");
+        m_statusLabel->setText("待命中（热键初始化中）");
     }
+
+    updateDynamicStateStyles();
+}
+
+void MainWindow::updateDynamicStateStyles()
+{
+    const bool running = m_clicker && m_clicker->isClicking();
+
+    if (m_startStopBtn) {
+        m_startStopBtn->setText(running ? "停止" : "启动");
+        m_startStopBtn->setProperty("running", running);
+        repolish(m_startStopBtn);
+    }
+
+    if (m_statusBadge) {
+        m_statusBadge->setProperty("running", running);
+        repolish(m_statusBadge);
+    }
+}
+
+void MainWindow::playStatusAnimation()
+{
+    if (!m_statusFadeAnimation || !m_statusFadeEffect) {
+        return;
+    }
+
+    m_statusFadeAnimation->stop();
+    m_statusFadeAnimation->setStartValue(0.3);
+    m_statusFadeAnimation->setEndValue(1.0);
+    m_statusFadeAnimation->start();
 }
 
 void MainWindow::onShowOverlayChanged(bool checked)
@@ -587,20 +624,13 @@ void MainWindow::onShowOverlayChanged(bool checked)
     }
 }
 
-// ============================================================
-// 加载设置
-// ============================================================
 void MainWindow::loadSettings()
 {
-    qDebug() << "MainWindow: 加载设置...";
+    const int interval = m_settings->clickInterval();
+    const int pressDown = m_settings->pressDownDuration();
+    const int randomDelay = m_settings->randomDelayRange();
+    const int clickMode = m_settings->clickMode();
 
-    // 加载点击参数
-    int interval = m_settings->clickInterval();
-    int pressDown = m_settings->pressDownDuration();
-    int randomDelay = m_settings->randomDelayRange();
-    int clickMode = m_settings->clickMode();
-
-    // 更新 UI 控件
     m_clickIntervalSlider->setValue(interval);
     m_pressDownSlider->setValue(pressDown);
     m_randomDelaySlider->setValue(randomDelay);
@@ -611,70 +641,67 @@ void MainWindow::loadSettings()
         m_postMessageRadio->setChecked(true);
     }
 
-    // 更新点击器参数
     m_clicker->setClickInterval(interval);
     m_clicker->setPressDownDuration(pressDown);
     m_clicker->setRandomDelayRange(randomDelay);
     m_clicker->setClickMode(clickMode == 0 ? MouseClicker::SendInputMode : MouseClicker::PostMessageMode);
 
-    // 加载快捷键
     m_toggleHotkey = m_settings->toggleHotkey();
     m_hotkeyEdit->setText(KeyboardHook::keyCodeToString(m_toggleHotkey));
+    m_hotkeyEdit->setProperty("capturing", false);
 
-    // 加载悬浮窗位置和可见性
+    move(m_settings->mainWindowPos());
+
     if (m_overlay) {
         m_overlay->move(m_settings->overlayPos());
-        bool visible = m_settings->overlayVisible();
+        const bool visible = m_settings->overlayVisible();
         m_overlay->setVisible(visible);
-        m_showOverlayCheckBox->setChecked(visible);  // 同步复选框状态
+        m_showOverlayCheckBox->setChecked(visible);
     }
 
-    qDebug() << "MainWindow: 设置加载完成";
+    const int lastPreset = m_settings->lastPreset();
+    QPushButton *savedPresetBtn = qobject_cast<QPushButton*>(m_presetButtonGroup->button(lastPreset));
+    if (savedPresetBtn) {
+        savedPresetBtn->setChecked(true);
+    } else {
+        syncPresetSelectionWithValues();
+    }
+
+    refreshRuntimeSummary();
+    updateStatusDisplay();
 }
 
-// ============================================================
-// 保存设置
-// ============================================================
 void MainWindow::saveSettings()
 {
-    qDebug() << "MainWindow: 保存设置...";
-
-    // 保存点击参数
     m_settings->setClickInterval(m_clickIntervalSlider->value());
     m_settings->setPressDownDuration(m_pressDownSlider->value());
     m_settings->setRandomDelayRange(m_randomDelaySlider->value());
     m_settings->setClickMode(m_sendInputRadio->isChecked() ? 0 : 1);
 
-    // 保存快捷键
     m_settings->setToggleHotkey(m_toggleHotkey);
-
-    // 保存窗口位置
     m_settings->setMainWindowPos(pos());
+
+    QAbstractButton *checkedPreset = m_presetButtonGroup->checkedButton();
+    if (checkedPreset) {
+        m_settings->setLastPreset(m_presetButtonGroup->id(checkedPreset));
+    } else {
+        m_settings->setLastPreset(-1);
+    }
 
     if (m_overlay) {
         m_settings->setOverlayPos(m_overlay->pos());
         m_settings->setOverlayVisible(m_overlay->isVisible());
     }
 
-    // 立即写入文件
     m_settings->save();
-
-    qDebug() << "MainWindow: 设置保存完成";
 }
 
-// ============================================================
-// 检查更新（公共方法）
-// ============================================================
 void MainWindow::checkForUpdates()
 {
     if (m_updateChecker) {
         m_updateChecker->checkForUpdates();
     }
 }
-
-// ============================================================
-// 更新相关槽函数
-// ============================================================
 
 void MainWindow::onCheckUpdateClicked()
 {
@@ -694,7 +721,6 @@ void MainWindow::onUpdateAvailable(const QString& version, const QString& url, c
     m_checkUpdateBtn->setText("下载更新");
     m_updateStatusLabel->setText(QString("发现新版本: v%1").arg(version));
 
-    // 询问用户是否下载
     QMessageBox::StandardButton reply = QMessageBox::question(
         this,
         "发现新版本",
@@ -705,7 +731,6 @@ void MainWindow::onUpdateAvailable(const QString& version, const QString& url, c
     );
 
     if (reply == QMessageBox::Yes) {
-        // 开始下载
         m_checkUpdateBtn->setEnabled(false);
         m_checkUpdateBtn->setText("下载中...");
         m_updateProgressBar->setVisible(true);
@@ -749,7 +774,6 @@ void MainWindow::onDownloadFinished(const QString& filePath)
     m_updateStatusLabel->setText("下载完成，点击更新");
     m_updateProgressBar->setVisible(false);
 
-    // 询问用户是否立即更新
     QMessageBox::StandardButton reply = QMessageBox::question(
         this,
         "下载完成",
@@ -758,10 +782,8 @@ void MainWindow::onDownloadFinished(const QString& filePath)
     );
 
     if (reply == QMessageBox::Yes) {
-        // 应用更新
         m_updateChecker->applyUpdate(filePath);
     } else {
-        // 断开按钮原有连接，改为应用更新
         disconnect(m_checkUpdateBtn, &QPushButton::clicked,
                    this, &MainWindow::onCheckUpdateClicked);
         connect(m_checkUpdateBtn, &QPushButton::clicked, this, [this]() {
@@ -781,4 +803,119 @@ void MainWindow::onDownloadFailed(const QString& error)
 
     QMessageBox::warning(this, "下载失败",
         QString("更新包下载失败：\n%1").arg(error));
+}
+
+void MainWindow::refreshRuntimeSummary()
+{
+    const int interval = m_clickIntervalSlider->value();
+    const int pressDown = m_pressDownSlider->value();
+    const int randomDelay = m_randomDelaySlider->value();
+
+    const double cycleMs = qMax(1, interval + pressDown);
+    const double cps = 1000.0 / cycleMs;
+
+    const QString mode = m_sendInputRadio->isChecked() ? "SendInput" : "PostMessage";
+
+    QString presetName = "自定义";
+    const QAbstractButton *checkedPreset = m_presetButtonGroup->checkedButton();
+    if (checkedPreset) {
+        presetName = presetToLabel(static_cast<UiPreset>(m_presetButtonGroup->id(checkedPreset)));
+    }
+
+    m_runtimeSummaryLabel->setText(
+        QString("预估 %1 次/秒  ·  模式 %2  ·  随机 ±%3ms  ·  预设 %4")
+            .arg(QString::number(cps, 'f', 1))
+            .arg(mode)
+            .arg(randomDelay)
+            .arg(presetName)
+    );
+}
+
+void MainWindow::applyPreset(UiPreset preset, bool persistPreset)
+{
+    switch (preset) {
+    case UiPreset::Stable:
+        m_clickIntervalSlider->setValue(120);
+        m_pressDownSlider->setValue(220);
+        m_randomDelaySlider->setValue(2);
+        break;
+    case UiPreset::Balanced:
+        m_clickIntervalSlider->setValue(80);
+        m_pressDownSlider->setValue(180);
+        m_randomDelaySlider->setValue(5);
+        break;
+    case UiPreset::Aggressive:
+        m_clickIntervalSlider->setValue(40);
+        m_pressDownSlider->setValue(120);
+        m_randomDelaySlider->setValue(10);
+        break;
+    }
+
+    if (persistPreset && m_settings) {
+        m_settings->setLastPreset(static_cast<int>(preset));
+    }
+
+    refreshRuntimeSummary();
+}
+
+void MainWindow::syncPresetSelectionWithValues()
+{
+    const UiPreset preset = currentPresetFromValues();
+    QAbstractButton *button = m_presetButtonGroup->button(static_cast<int>(preset));
+
+    if (button) {
+        button->setChecked(true);
+    } else {
+        m_presetButtonGroup->setExclusive(false);
+        m_presetStableBtn->setChecked(false);
+        m_presetBalancedBtn->setChecked(false);
+        m_presetAggressiveBtn->setChecked(false);
+        m_presetButtonGroup->setExclusive(true);
+    }
+}
+
+MainWindow::UiPreset MainWindow::currentPresetFromValues() const
+{
+    const int interval = m_clickIntervalSlider->value();
+    const int pressDown = m_pressDownSlider->value();
+    const int randomDelay = m_randomDelaySlider->value();
+
+    if (interval == 120 && pressDown == 220 && randomDelay == 2) {
+        return UiPreset::Stable;
+    }
+
+    if (interval == 80 && pressDown == 180 && randomDelay == 5) {
+        return UiPreset::Balanced;
+    }
+
+    if (interval == 40 && pressDown == 120 && randomDelay == 10) {
+        return UiPreset::Aggressive;
+    }
+
+    return UiPreset::Custom;
+}
+
+QString MainWindow::presetToLabel(UiPreset preset) const
+{
+    switch (preset) {
+    case UiPreset::Stable:
+        return "稳定";
+    case UiPreset::Balanced:
+        return "均衡";
+    case UiPreset::Aggressive:
+        return "激进";
+    }
+
+    return "自定义";
+}
+
+void MainWindow::repolish(QWidget *widget)
+{
+    if (!widget) {
+        return;
+    }
+
+    widget->style()->unpolish(widget);
+    widget->style()->polish(widget);
+    widget->update();
 }

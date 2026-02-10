@@ -25,6 +25,7 @@ namespace Keys {
     const QString PressDownDuration = "ClickParams/pressDownDuration";
     const QString RandomDelayRange = "ClickParams/randomDelay";
     const QString ClickMode = "ClickParams/mode";
+    const QString LastPreset = "UI/lastPreset";
 
     // 快捷键
     const QString ToggleHotkey = "Hotkeys/toggle";
@@ -45,6 +46,7 @@ namespace Defaults {
     const int PressDownDuration = 200;
     const int RandomDelayRange = 5;
     const int ClickMode = 0;  // SendInput
+    const int LastPreset = 1; // Balanced
     const int ToggleHotkey = 0x77;  // VK_F8
     const int WindowX = 100;
     const int WindowY = 100;
@@ -179,6 +181,16 @@ int SettingsManager::clickMode() const
     return m_settings->value(Keys::ClickMode, Defaults::ClickMode).toInt();
 }
 
+void SettingsManager::setLastPreset(int preset)
+{
+    m_settings->setValue(Keys::LastPreset, preset);
+}
+
+int SettingsManager::lastPreset() const
+{
+    return m_settings->value(Keys::LastPreset, Defaults::LastPreset).toInt();
+}
+
 // ============================================================
 // 窗口位置设置
 // ============================================================
@@ -248,6 +260,7 @@ void SettingsManager::resetToDefaults()
     setPressDownDuration(Defaults::PressDownDuration);
     setRandomDelayRange(Defaults::RandomDelayRange);
     setClickMode(Defaults::ClickMode);
+    setLastPreset(Defaults::LastPreset);
     setToggleHotkey(Defaults::ToggleHotkey);
     setMainWindowPos(QPoint(Defaults::WindowX, Defaults::WindowY));
     setOverlayPos(QPoint(Defaults::WindowX, Defaults::WindowY));

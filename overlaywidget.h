@@ -68,6 +68,12 @@ public slots:
     void setRunning(bool running);
 
     /**
+     * @brief 设置主题明暗
+     * @param darkTheme true=深色主题 false=浅色主题
+     */
+    void setThemeDark(bool darkTheme);
+
+    /**
      * @brief 强制置顶窗口
      *
      * 使用 Windows API 将窗口设为最顶层。
@@ -124,6 +130,7 @@ private:
     // ========================================================
     QLabel *m_statusLabel;      // 状态文字标签
     bool m_isRunning;           // 当前运行状态
+    bool m_isDarkTheme;         // 当前主题模式
 
     QPoint m_dragPosition;      // 拖动时记录的鼠标位置
     bool m_isDragging;          // 是否正在拖动

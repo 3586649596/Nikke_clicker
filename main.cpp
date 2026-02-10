@@ -15,6 +15,7 @@
 // 项目头文件
 // ============================================================
 #include "mainwindow.h"
+#include "theme_manager.h"
 #include "version.h"
 
 /**
@@ -64,6 +65,7 @@ int main(int argc, char *argv[])
     // ========================================
     // MainWindow 对象在栈上创建，当 main() 函数结束时自动销毁
     MainWindow w;
+    ThemeManager::apply(&w);
     w.show();  // 显示窗口
 
     // ========================================

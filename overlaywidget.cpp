@@ -5,6 +5,7 @@
 // ============================================================
 
 #include "overlaywidget.h"
+#include "theme_manager.h"
 #include <QMouseEvent>
 #include <QPainter>
 #include <QVBoxLayout>
@@ -23,6 +24,7 @@ OverlayWidget::OverlayWidget(QWidget *parent)
     : QWidget(parent)
     , m_statusLabel(nullptr)
     , m_isRunning(false)
+    , m_isDarkTheme(true)
     , m_isDragging(false)
 {
     // 初始化窗口属性
@@ -34,7 +36,7 @@ OverlayWidget::OverlayWidget(QWidget *parent)
 
     m_statusLabel = new QLabel("已停止", this);
     m_statusLabel->setAlignment(Qt::AlignCenter);
-    m_statusLabel->setStyleSheet("color: white; font-size: 12px; font-weight: bold;");
+    m_statusLabel->setStyleSheet("font-size: 12px; font-weight: bold;");
 
     layout->addWidget(m_statusLabel);
 
@@ -101,18 +103,28 @@ void OverlayWidget::setRunning(bool running)
     updateDisplay();
 }
 
+void OverlayWidget::setThemeDark(bool darkTheme)
+{
+    m_isDarkTheme = darkTheme;
+    updateDisplay();
+}
+
 // ============================================================
 // 更新显示
 // ============================================================
 void OverlayWidget::updateDisplay()
 {
+    const QColor textColor = ThemeManager::overlayTextColor(m_isRunning, m_isDarkTheme);
+
     if (m_isRunning) {
         m_statusLabel->setText("运行中");
-        m_statusLabel->setStyleSheet("color: #00FF00; font-size: 12px; font-weight: bold;");
     } else {
         m_statusLabel->setText("已停止");
-        m_statusLabel->setStyleSheet("color: white; font-size: 12px; font-weight: bold;");
     }
+    m_statusLabel->setStyleSheet(
+        QString("color: %1; font-size: 12px; font-weight: bold;")
+            .arg(textColor.name())
+    );
 
     // 触发重绘（更新背景颜色）
     update();
@@ -224,12 +236,7 @@ void OverlayWidget::paintEvent(QPaintEvent *event)
     painter.setRenderHint(QPainter::Antialiasing);
 
     // 设置背景颜色（半透明黑色或绿色）
-    QColor bgColor;
-    if (m_isRunning) {
-        bgColor = QColor(0, 100, 0, 180);  // 半透明深绿色
-    } else {
-        bgColor = QColor(50, 50, 50, 180); // 半透明深灰色
-    }
+    const QColor bgColor = ThemeManager::overlayBackgroundColor(m_isRunning, m_isDarkTheme);
 
     // 设置画笔和画刷
     painter.setBrush(bgColor);
