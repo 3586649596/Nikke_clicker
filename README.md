@@ -144,6 +144,11 @@ For issues or suggestions, please submit an [Issue](https://github.com/358664959
 
 ## Changelog
 
+### v1.1.3
+- Revamped main UI with single-screen HUD style
+- Added preset controls and runtime summary
+- Fixed startup crash caused by theme change recursion
+
 ### v1.1.2
 - Improved UI responsive layout
 - Fixed controls display issue when resizing window
