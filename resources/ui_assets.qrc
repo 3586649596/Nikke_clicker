@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/logo.svg</file>
+        <file>icons/status.svg</file>
+        <file>icons/hotkey.svg</file>
+        <file>icons/params.svg</file>
+        <file>icons/mode.svg</file>
+        <file>icons/update.svg</file>
+    </qresource>
+</RCC>

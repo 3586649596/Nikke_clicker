@@ -2,7 +2,7 @@
 # Nikke Qt 鼠标宏 - 项目配置文件
 # ============================================================
 
-QT       += core gui network
+QT       += core gui network svg
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -22,7 +22,8 @@ SOURCES += \
     keyboardhook.cpp \
     overlaywidget.cpp \
     settingsmanager.cpp \
-    updatechecker.cpp
+    updatechecker.cpp \
+    theme_manager.cpp
 
 # ============================================================
 # 头文件
@@ -34,13 +35,20 @@ HEADERS += \
     overlaywidget.h \
     settingsmanager.h \
     updatechecker.h \
-    version.h
+    version.h \
+    theme_manager.h
 
 # ============================================================
 # UI 文件
 # ============================================================
 FORMS += \
     mainwindow.ui
+
+# ============================================================
+# 资源文件
+# ============================================================
+RESOURCES += \
+    resources/ui_assets.qrc
 
 # ============================================================
 # Windows 特定配置
