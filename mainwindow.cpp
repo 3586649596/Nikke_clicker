@@ -853,19 +853,19 @@ void MainWindow::applyPreset(UiPreset preset, bool persistPreset)
     case UiPreset::Custom:
         break;
     case UiPreset::Stable:
-        m_clickIntervalSlider->setValue(120);
-        m_pressDownSlider->setValue(220);
-        m_randomDelaySlider->setValue(2);
+        m_clickIntervalSlider->setValue(150);
+        m_pressDownSlider->setValue(250);
+        m_randomDelaySlider->setValue(8);
         break;
     case UiPreset::Balanced:
-        m_clickIntervalSlider->setValue(80);
-        m_pressDownSlider->setValue(180);
+        m_clickIntervalSlider->setValue(130);
+        m_pressDownSlider->setValue(230);
         m_randomDelaySlider->setValue(5);
         break;
     case UiPreset::Aggressive:
-        m_clickIntervalSlider->setValue(40);
-        m_pressDownSlider->setValue(120);
-        m_randomDelaySlider->setValue(10);
+        m_clickIntervalSlider->setValue(100);
+        m_pressDownSlider->setValue(200);
+        m_randomDelaySlider->setValue(2);
         break;
     }
 
@@ -904,15 +904,15 @@ MainWindow::UiPreset MainWindow::currentPresetFromValues() const
     const int pressDown = m_pressDownSlider->value();
     const int randomDelay = m_randomDelaySlider->value();
 
-    if (interval == 120 && pressDown == 220 && randomDelay == 2) {
+    if (interval == 150 && pressDown == 250 && randomDelay == 8) {
         return UiPreset::Stable;
     }
 
-    if (interval == 80 && pressDown == 180 && randomDelay == 5) {
+    if (interval == 130 && pressDown == 230 && randomDelay == 5) {
         return UiPreset::Balanced;
     }
 
-    if (interval == 40 && pressDown == 120 && randomDelay == 10) {
+    if (interval == 100 && pressDown == 200 && randomDelay == 2) {
         return UiPreset::Aggressive;
     }
 

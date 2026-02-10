@@ -144,6 +144,10 @@ For issues or suggestions, please submit an [Issue](https://github.com/358664959
 
 ## Changelog
 
+### v1.1.4
+- Tuned preset parameter values for Stable / Balanced / Aggressive
+- Synced preset recognition logic with updated parameter combinations
+
 ### v1.1.3
 - Revamped main UI with single-screen HUD style
 - Added preset controls and runtime summary
