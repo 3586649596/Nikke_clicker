@@ -31,14 +31,19 @@ UpdateChecker::UpdateChecker(QObject *parent)
 // ============================================================
 UpdateChecker::~UpdateChecker()
 {
+    // 如果正在下载（用户关程序时可能还在下载中）
     if (m_downloadReply) {
-        m_downloadReply->abort();
-        m_downloadReply->deleteLater();
+        m_downloadReply->abort();          // 中断网络请求
+        m_downloadReply->deleteLater();    // 稍后释放（QObject 子类用 deleteLater 更安全，
+                                           // 防止事件队列里还有它的信号没处理完）
     }
+
+    // 如果下载文件还开着
     if (m_downloadFile) {
-        m_downloadFile->close();
-        delete m_downloadFile;
+        m_downloadFile->close();           // 关闭文件（释放文件句柄）
+        delete m_downloadFile;             // 释放内存（普通对象直接 delete）
     }
+    // 注意：m_networkManager 不用手动释放，构造时传了 this 作为父对象，Qt 自动管理
 }
 
 // ============================================================
