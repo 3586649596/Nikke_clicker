@@ -136,6 +136,7 @@ private:
 
     QGraphicsOpacityEffect *m_statusFadeEffect;
     QPropertyAnimation *m_statusFadeAnimation;
+    bool m_themeApplyInProgress;
 };
 
 #endif // MAINWINDOW_H

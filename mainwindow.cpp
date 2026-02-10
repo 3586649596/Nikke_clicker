@@ -45,6 +45,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_updateStatusLabel(nullptr)
     , m_statusFadeEffect(nullptr)
     , m_statusFadeAnimation(nullptr)
+    , m_themeApplyInProgress(false)
 {
     ui->setupUi(this);
 
@@ -100,13 +101,14 @@ MainWindow::~MainWindow()
 
 void MainWindow::changeEvent(QEvent *event)
 {
-    if (event->type() == QEvent::ApplicationPaletteChange ||
-        event->type() == QEvent::PaletteChange) {
+    if (event->type() == QEvent::ApplicationPaletteChange && !m_themeApplyInProgress) {
+        m_themeApplyInProgress = true;
         ThemeManager::apply(this);
         if (m_overlay) {
             m_overlay->setThemeDark(ThemeManager::isSystemDark());
         }
         updateDynamicStateStyles();
+        m_themeApplyInProgress = false;
     }
 
     QMainWindow::changeEvent(event);
