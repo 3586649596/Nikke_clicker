@@ -33,6 +33,7 @@ public:
 
     static QColor overlayBackgroundColor(bool running, bool darkTheme);
     static QColor overlayTextColor(bool running, bool darkTheme);
+    static QColor overlayBorderColor(bool running, bool darkTheme);
 
 private:
     static QString buildStyleSheet(const ThemeTokens& tokens);

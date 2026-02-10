@@ -8,6 +8,7 @@
 #include "theme_manager.h"
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPen>
 #include <QVBoxLayout>
 #include <QDebug>
 
@@ -41,7 +42,7 @@ OverlayWidget::OverlayWidget(QWidget *parent)
     layout->addWidget(m_statusLabel);
 
     // 设置窗口大小
-    setFixedSize(100, 30);
+    setFixedSize(116, 34);
 
     // 初始位置：屏幕右上角
     move(100, 100);
@@ -240,7 +241,7 @@ void OverlayWidget::paintEvent(QPaintEvent *event)
 
     // 设置画笔和画刷
     painter.setBrush(bgColor);
-    painter.setPen(Qt::NoPen);  // 无边框
+    painter.setPen(QPen(ThemeManager::overlayBorderColor(m_isRunning, m_isDarkTheme), 1.2));
 
     // 绘制圆角矩形
     // 参数：矩形区域，x方向圆角半径，y方向圆角半径

@@ -519,6 +519,8 @@ void MainWindow::onChangeHotkeyClicked()
         repolish(m_hotkeyEdit);
         m_keyboardHook->setCaptureMode(false);
     }
+
+    refreshRuntimeSummary();
 }
 
 void MainWindow::onHotkeyPressed(int vkCode, const QString& name)
@@ -536,6 +538,7 @@ void MainWindow::onHotkeyPressed(int vkCode, const QString& name)
 
         m_changeHotkeyBtn->setText("修改");
         m_isCapturingHotkey = false;
+        refreshRuntimeSummary();
         return;
     }
 
@@ -620,6 +623,7 @@ void MainWindow::playStatusAnimation()
 void MainWindow::onShowOverlayChanged(bool checked)
 {
     if (m_overlay) {
+        m_overlay->setThemeDark(ThemeManager::isSystemDark());
         m_overlay->setVisible(checked);
     }
 }
@@ -822,17 +826,27 @@ void MainWindow::refreshRuntimeSummary()
         presetName = presetToLabel(static_cast<UiPreset>(m_presetButtonGroup->id(checkedPreset)));
     }
 
+    const QString status = (m_clicker && m_clicker->isClicking()) ? "运行中" : "待命";
+    const QString hotkey = KeyboardHook::keyCodeToString(m_toggleHotkey);
+
     m_runtimeSummaryLabel->setText(
-        QString("预估 %1 次/秒  ·  模式 %2  ·  随机 ±%3ms  ·  预设 %4")
+        QString("%1  ·  预估 %2 次/秒  ·  模式 %3  ·  随机 ±%4ms  ·  预设 %5  ·  热键 %6")
+            .arg(status)
             .arg(QString::number(cps, 'f', 1))
             .arg(mode)
             .arg(randomDelay)
             .arg(presetName)
+            .arg(hotkey)
     );
 }
 
 void MainWindow::applyPreset(UiPreset preset, bool persistPreset)
 {
+    QAbstractButton *presetBtn = m_presetButtonGroup->button(static_cast<int>(preset));
+    if (presetBtn) {
+        presetBtn->setChecked(true);
+    }
+
     switch (preset) {
     case UiPreset::Stable:
         m_clickIntervalSlider->setValue(120);
@@ -865,12 +879,18 @@ void MainWindow::syncPresetSelectionWithValues()
 
     if (button) {
         button->setChecked(true);
+        if (m_settings) {
+            m_settings->setLastPreset(m_presetButtonGroup->id(button));
+        }
     } else {
         m_presetButtonGroup->setExclusive(false);
         m_presetStableBtn->setChecked(false);
         m_presetBalancedBtn->setChecked(false);
         m_presetAggressiveBtn->setChecked(false);
         m_presetButtonGroup->setExclusive(true);
+        if (m_settings) {
+            m_settings->setLastPreset(-1);
+        }
     }
 }
 

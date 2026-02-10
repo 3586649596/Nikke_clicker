@@ -75,6 +75,15 @@ QColor ThemeManager::overlayTextColor(bool running, bool darkTheme)
     return darkTheme ? QColor("#E6EDF3") : QColor("#243241");
 }
 
+QColor ThemeManager::overlayBorderColor(bool running, bool darkTheme)
+{
+    if (running) {
+        return darkTheme ? QColor("#5EE9A5") : QColor("#12824A");
+    }
+
+    return darkTheme ? QColor("#516275") : QColor("#9DA9B5");
+}
+
 QString ThemeManager::buildStyleSheet(const ThemeTokens& t)
 {
     const QString accentSoft = t.accentAlt.name();
