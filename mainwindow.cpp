@@ -821,7 +821,7 @@ void MainWindow::refreshRuntimeSummary()
     const QString mode = m_sendInputRadio->isChecked() ? "SendInput" : "PostMessage";
 
     QString presetName = "自定义";
-    const QAbstractButton *checkedPreset = m_presetButtonGroup->checkedButton();
+    QAbstractButton *checkedPreset = m_presetButtonGroup->checkedButton();
     if (checkedPreset) {
         presetName = presetToLabel(static_cast<UiPreset>(m_presetButtonGroup->id(checkedPreset)));
     }
@@ -848,6 +848,8 @@ void MainWindow::applyPreset(UiPreset preset, bool persistPreset)
     }
 
     switch (preset) {
+    case UiPreset::Custom:
+        break;
     case UiPreset::Stable:
         m_clickIntervalSlider->setValue(120);
         m_pressDownSlider->setValue(220);
@@ -918,6 +920,8 @@ MainWindow::UiPreset MainWindow::currentPresetFromValues() const
 QString MainWindow::presetToLabel(UiPreset preset) const
 {
     switch (preset) {
+    case UiPreset::Custom:
+        return "自定义";
     case UiPreset::Stable:
         return "稳定";
     case UiPreset::Balanced:

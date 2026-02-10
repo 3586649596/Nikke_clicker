@@ -248,6 +248,6 @@ QString ThemeManager::buildStyleSheet(const ThemeTokens& t)
         .arg(t.radiusSmall)
         .arg(accentSoft)
         .arg(t.surfaceElevated.name())
-        .arg(accent.name())
+        .arg(accent)
         .arg(QColor(accent).lighter(170).name());
 }
